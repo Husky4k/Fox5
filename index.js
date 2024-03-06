@@ -1,26 +1,34 @@
-const express = require('express');
-const { v4 } = require('uuid');
-const cheerio = require('cheerio');
-const app = express();
-const rs = require('request');
-const axios = require('axios');
-const DOMParser = require('dom-parser');
+const express = require('express')
+const { v4 } = require('uuid')
+const cheerio = require('cheerio')
+const app = express()
+const rs = require('request')
+const axios = require('axios')
+const DOMParser = require('dom-parser')
 
-var cors = require('cors');
+var cors = require('cors')
 
-const PORT = process.env.PORT || 5000;
-const CORS = 'https://cors-anywhere.herokuapp.com/';
+const PORT = process.env.PORT || 5000
+const CORS = 'https://cors-anywhere.herokuapp.com/'
 
-app.use(cors());
+app.use(cors())
 const baseURL = "https://gogoanime3.co/";
 /*
 this server was based on goone.pro
 */
 
 const myTrimAndSlice = (string) => {
-    trimmed = string.trim();
-    return trimmed;
+    trimmed = string.trim()
+    //sliced = trimmed.slice(0, trimmed.lastIndexOf('Episode'))
+    //return sliced
+    return trimmed
 }
+
+/*
+Need to change getSearchDom variables to more general term.
+The variable was used first while i was testing the scraping
+and it was copy pasted to other routes
+*/
 
 app.get("/api/search/:word/:page", (req, res) => {
   let results = [];
@@ -44,71 +52,50 @@ app.get("/api/search/:word/:page", (req, res) => {
         });
         res.status(200).json({ results });
       } catch (e) {
-        res.status(404).json({ e: "404 error" });
+        res.status(404).json({ e: "404 fuck off!!!!!" });
       }
     }
   });
 });
 
 
-app.get("/api/details/:id", (req, res) => {
-  let results = [];
+app.get("/api/details/:id", async (req, res) => {
+  try {
+    const siteUrl = `https://gogoanime3.co/category/${req.params.id}`;
+    const response = await axios.get(siteUrl);
+    const $ = cheerio.load(response.data);
 
-  siteUrl = `${baseURL}category/${req.params.id}`;
-  rs(siteUrl, (err, resp, html) => {
-    if (!err) {
-      try {
-        var $ = cheerio.load(html);
-        var type = " ";
-        var summary = "";
-        var relased = "";
-        var status = "";
-        var genres = "";
-        var Othername = "";
-        var title = $(".anime_info_body_bg").children("h1").text();
-        var image = $(".anime_info_body_bg").children("img").attr().src;
+    const title = $('div.anime_info_body_bg > h1').text();
+    const image = $('div.anime_info_body_bg > img').attr('src');
+    const type = $('div.anime_info_body_bg > p:nth-child(4) > a').text().trim();
+    const summary = $('div.anime_info_body_bg > p:nth-child(5)').text().replace('Plot Summary: ', '').trim();
+    const released = $('div.anime_info_body_bg > p:nth-child(7)').text().replace('Released: ', '').trim();
+    const status = $('div.anime_info_body_bg > p:nth-child(8) > a').text().trim();
+    const otherName = $('div.anime_info_body_bg > p:nth-child(9)').text().replace('Other name: ', '').replace(/;/g, ',').trim();
 
-        $("p.type").each(function (index, element) {
-          if ("Type: " == $(this).children("span").text()) {
-            type = $(this).text().slice(15, -5);
-          } else if ("Plot Summary: " == $(this).children("span").text()) {
-            summary = $(this).text().slice(14);
-          } else if ("Released: " == $(this).children("span").text()) {
-            relased = $(this).text().slice(10);
-          } else if ("Status: " == $(this).children("span").text()) {
-            status = $(this).text().slice(8);
-          } else if ("Genre: " == $(this).children("span").text()) {
-            genres = $(this).text().slice(20, -4);
-            genres = genres.split(",");
-            genres = genres.join(",");
-          } else "Other name: " == $(this).children("span").text();
-          {
-            Othername = $(this).text().slice(12);
-          }
-        });
-        genres.replace(" ");
-        var totalepisode = $("#episode_page")
-          .children("li")
-          .last()
-          .children("a")
-          .attr().ep_end;
-        results[0] = {
-          title,
-          image,
-          type,
-          summary,
-          relased,
-          genres,
-          status,
-          totalepisode,
-          Othername,
-        };
-        res.status(200).json({ results });
-      } catch (e) {
-        res.status(404).json({ e: "404 error" });
-      }
-    }
-  });
+    const genres = [];
+    $('div.anime_info_body_bg > p:nth-child(6) > a').each((i, elem) => {
+      genres.push($(elem).attr('title').trim());
+    });
+
+    const totalepisode = $('#episode_page > li').last().find('a').attr('ep_end');
+
+    const results = {
+      title,
+      image,
+      type,
+      summary,
+      released,
+      genres,
+      status,
+      totalepisode,
+      otherName,
+    };
+
+    res.status(200).json({ results });
+  } catch (error) {
+    res.status(404).json({ error: "Failed to fetch data" });
+  }
 });
 
 
