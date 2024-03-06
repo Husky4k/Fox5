@@ -71,7 +71,9 @@ app.get("/api/details/:id", async (req, res) => {
     const desc = $('div.anime_info_body_bg > p:nth-child(5)')
       .text()
       .replace('Plot Summary: ', '');
-    const genre = $('div.anime_info_body_bg > p:nth-child(6) > a').text();
+    const released = $('div.anime_info_body_bg > p:nth-child(7)')
+      .text()
+      .replace('Released: ', '');
     const otherName = $('div.anime_info_body_bg > p:nth-child(9)')
       .text()
       .replace('Other name: ', '')
@@ -115,6 +117,7 @@ app.get("/api/details/:id", async (req, res) => {
     res.status(404).json({ error: "404 Not Found" });
   }
 });
+
 
 
 async function getLink(Link) {
