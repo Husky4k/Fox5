@@ -71,10 +71,7 @@ app.get("/api/details/:id", async (req, res) => {
     const desc = $('div.anime_info_body_bg > p:nth-child(5)')
       .text()
       .replace('Plot Summary: ', '');
-    const releasedDate = $('div.anime_info_body_bg > p:nth-child(7)')
-      .text()
-      .replace('Released: ', '');
-    const status = $('div.anime_info_body_bg > p:nth-child(8) > a').text();
+    const genre = $('div.anime_info_body_bg > p:nth-child(6) > a').text();
     const otherName = $('div.anime_info_body_bg > p:nth-child(9)')
       .text()
       .replace('Other name: ', '')
@@ -106,8 +103,6 @@ app.get("/api/details/:id", async (req, res) => {
       image: animeImage,
       type: type,
       summary: desc,
-      released: releasedDate,
-      status: status,
       genres: genres,
       othername: otherName,
       totalepisode: ep_end,
@@ -117,7 +112,7 @@ app.get("/api/details/:id", async (req, res) => {
     res.status(200).json({ results });
   } catch (error) {
     console.error(error);
-    res.status(404).json({ error: "404 fuck off!!!!!" });
+    res.status(404).json({ error: "404 Not Found" });
   }
 });
 
