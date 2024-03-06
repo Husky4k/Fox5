@@ -61,26 +61,24 @@ app.get("/api/search/:word/:page", (req, res) => {
 
 app.get("/api/details/:id", async (req, res) => {
   try {
-    const siteUrl = `https://gogoanime3.co/category/${req.params.id}`;
-    const response = await axios.get(siteUrl);
-    const $ = cheerio.load(response.data);
+    const results = [];
 
-    const title = $('div.anime_info_body_bg > h1').text();
-    const image = $('div.anime_info_body_bg > img').attr('src');
-    const type = $('div.anime_info_body_bg > p:nth-child(4) > a').text().trim();
-    const summary = $('div.anime_info_body_bg > p:nth-child(5)').text().replace('Plot Summary: ', '').trim();
-    const released = $('div.anime_info_body_bg > p:nth-child(7)').text().replace('Released: ', '').trim();
-    const status = $('div.anime_info_body_bg > p:nth-child(8) > a').text().trim();
-    const otherName = $('div.anime_info_body_bg > p:nth-child(9)').text().replace('Other name: ', '').replace(/;/g, ',').trim();
+    const siteUrl = `${baseURL}category/${req.params.id}`;
+    const html = await fetch(siteUrl);
+    const $ = cheerio.load(html);
 
-    const genres = [];
-    $('div.anime_info_body_bg > p:nth-child(6) > a').each((i, elem) => {
-      genres.push($(elem).attr('title').trim());
-    });
+    const title = $(".anime_info_body_bg h1").text();
+    const image = $(".anime_info_body_bg img").attr("src");
+    const type = $(".anime_info_body_bg p:nth-child(4) a").text();
+    const summary = $(".anime_info_body_bg p:nth-child(5)").text().replace("Plot Summary: ", "");
+    const released = $(".anime_info_body_bg p:nth-child(7)").text().replace("Released: ", "");
+    const status = $(".anime_info_body_bg p:nth-child(8) a").text();
+    let genres = $(".anime_info_body_bg p:nth-child(6) a").map((_, el) => $(el).text()).get().join(", ");
+    const otherName = $(".anime_info_body_bg p:nth-child(9)").text().replace("Other name: ", "").replace(/;/g, "");
 
-    const totalepisode = $('#episode_page > li').last().find('a').attr('ep_end');
+    const totalepisode = $("#episode_page li").last().find("a").attr("ep_end");
 
-    const results = {
+    results.push({
       title,
       image,
       type,
@@ -89,14 +87,71 @@ app.get("/api/details/:id", async (req, res) => {
       genres,
       status,
       totalepisode,
-      otherName,
-    };
+      otherName
+    });
 
     res.status(200).json({ results });
   } catch (error) {
-    res.status(404).json({ error: "Failed to fetch data" });
+    res.status(404).json({ error: "404 Not Found" });
   }
 });
+
+export const scrapeAnimeDetails = async ({ id }) => {
+  try {
+    const genres = [];
+    const epList = [];
+
+    const animePageTest = await axios.get(`https://gogoanime3.net/category/${id}`);
+    const $ = cheerio.load(animePageTest.data);
+
+    const animeTitle = $('div.anime_info_body_bg > h1').text();
+    const animeImage = $('div.anime_info_body_bg > img').attr('src');
+    const type = $('div.anime_info_body_bg > p:nth-child(4) > a').text();
+    const desc = $('div.anime_info_body_bg > p:nth-child(5)').text().replace('Plot Summary: ', '');
+    const releasedDate = $('div.anime_info_body_bg > p:nth-child(7)').text().replace('Released: ', '');
+    const status = $('div.anime_info_body_bg > p:nth-child(8) > a').text();
+    const otherName = $('div.anime_info_body_bg > p:nth-child(9)').text().replace('Other name: ', '').replace(/;/g, '');
+
+    $('div.anime_info_body_bg > p:nth-child(6) > a').each((i, elem) => {
+      genres.push($(elem).attr('title').trim());
+    });
+
+    const ep_start = $('#episode_page > li').first().find('a').attr('ep_start');
+    const ep_end = $('#episode_page > li').last().find('a').attr('ep_end');
+    const movie_id = $('#movie_id').attr('value');
+    const alias = $('#alias_anime').attr('value');
+    const episode_info_html = $('div.anime_info_episodes_next').html();
+    const episode_page = $('ul#episode_page').html();
+
+    const html = await axios.get(`${list_episodes_url}?ep_start=${ep_start}&ep_end=${ep_end}&id=${movie_id}&default_ep=${0}&alias=${alias}`);
+    const $$ = cheerio.load(html.data);
+
+    $$('#episode_related > li').each((i, el) => {
+      epList.push({
+        episodeId: $(el).find('a').attr('href').split('/')[1],
+        episodeNum: $(el).find(`div.name`).text().replace('EP ', ''),
+      });
+    });
+
+    return {
+      name: animeTitle.toString(),
+      type: type.toString(),
+      released: releasedDate.toString(),
+      status: status.toString(),
+      genres: genres,
+      othername: otherName,
+      synopsis: desc.toString(),
+      imageUrl: animeImage.toString(),
+      totalEpisodes: ep_end,
+      episode_id: epList.reverse(),
+      episode_info_html: episode_info_html.trim(),
+      episode_page: episode_page.toString().trim(),
+    };
+  } catch (err) {
+    console.log(err);
+    return { error: err };
+  }
+};
 
 
 async function getLink(Link) {
