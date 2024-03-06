@@ -71,9 +71,8 @@ app.get("/api/details/:id", async (req, res) => {
     const desc = $('div.anime_info_body_bg > p:nth-child(5)')
       .text()
       .replace('Plot Summary: ', '');
-    const releasedDate = $('div.anime_info_body_bg > p:nth-child(7)')
-      .text()
-      .replace('Released: ', '');
+    const releasedDate = $('div.anime_info_body_bg > p:nth-child(7)').text();
+    const status = $('div.anime_info_body_bg > p:nth-child(8) > a').text();
     const otherName = $('div.anime_info_body_bg > p:nth-child(9)')
       .text()
       .replace('Other name: ', '')
@@ -83,6 +82,13 @@ app.get("/api/details/:id", async (req, res) => {
     $('div.anime_info_body_bg > p:nth-child(6) > a').each((i, elem) => {
       genres.push($(elem).attr('title').trim());
     });
+
+    // Replace "Genre" with "genres"
+    const genreIndex = results.findIndex(item => item.genre);
+    if (genreIndex !== -1) {
+      results[genreIndex].genres = results[genreIndex].genre;
+      delete results[genreIndex].genre;
+    }
 
     const ep_start = $('#episode_page > li').first().find('a').attr('ep_start');
     const ep_end = $('#episode_page > li').last().find('a').attr('ep_end');
@@ -106,6 +112,7 @@ app.get("/api/details/:id", async (req, res) => {
       type: type,
       summary: desc,
       released: releasedDate,
+      status: status,
       genres: genres,
       othername: otherName,
       totalepisode: ep_end,
@@ -118,6 +125,7 @@ app.get("/api/details/:id", async (req, res) => {
     res.status(404).json({ error: "404 Not Found" });
   }
 });
+
 
 
 async function getLink(Link) {
