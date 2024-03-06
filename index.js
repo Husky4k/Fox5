@@ -59,66 +59,82 @@ app.get("/api/search/:word/:page", (req, res) => {
 });
 
 
-app.get("/api/details/:id", (req, res) => {
-  let results = [];
+const scrapeAnimeDetails = async (id) => {
+  try {
+    let genres = [];
+    let epList = [];
 
-  siteUrl = `${baseURL}category/${req.params.id}`;
-  rs(siteUrl, (err, resp, html) => {
-    if (!err) {
-      try {
-        var $ = cheerio.load(html);
-        var type = " ";
-        var summary = "";
-        var relased = "";
-        var status = "";
-        var genres = "";
-        var Othername = "";
-        var title = $(".anime_info_body_bg").children("h1").text();
-        var image = $(".anime_info_body_bg").children("img").attr().src;
+    const animePageTest = await axios.get(`https://gogoanime3.co/category/${id}`);
 
-        $("p.type").each(function (index, element) {
-          if ("Type: " == $(this).children("span").text()) {
-            type = $(this).text().slice(15, -5);
-          } else if ("Plot Summary: " == $(this).children("span").text()) {
-            summary = $(this).text().slice(14);
-          } else if ("Released: " == $(this).children("span").text()) {
-            relased = $(this).text().slice(10);
-          } else if ("Status: " == $(this).children("span").text()) {
-            status = $(this).text().slice(8);
-          } else if ("Genre: " == $(this).children("span").text()) {
-            genres = $(this).text().slice(20, -4);
-            genres = genres.split(",");
-            genres = genres.join(",");
-          } else "Other name: " == $(this).children("span").text();
-          {
-            Othername = $(this).text().slice(12);
-          }
-        });
-        genres.replace(" ");
-        var totalepisode = $("#episode_page")
-          .children("li")
-          .last()
-          .children("a")
-          .attr().ep_end;
-        results[0] = {
-          title,
-          image,
-          type,
-          summary,
-          relased,
-          genres,
-          status,
-          totalepisode,
-          Othername,
-        };
-        res.status(200).json({ results });
-      } catch (e) {
-        res.status(404).json({ e: "404 fuck off!!!!!" });
-      }
-    }
-  });
+    const $ = cheerio.load(animePageTest.data);
+
+    const animeTitle = $('div.anime_info_body_bg > h1').text();
+    const animeImage = $('div.anime_info_body_bg > img').attr('src');
+    const type = $('div.anime_info_body_bg > p:nth-child(4) > a').text();
+    const desc = $('div.anime_info_body_bg > p:nth-child(5)')
+      .text()
+      .replace('Plot Summary: ', '');
+    const releasedDate = $('div.anime_info_body_bg > p:nth-child(7)')
+      .text()
+      .replace('Released: ', '');
+    const status = $('div.anime_info_body_bg > p:nth-child(8) > a').text();
+    const otherName = $('div.anime_info_body_bg > p:nth-child(9)')
+      .text()
+      .replace('Other name: ', '')
+      .replace(/;/g, ',');
+
+    $('div.anime_info_body_bg > p:nth-child(6) > a').each((i, elem) => {
+      genres.push($(elem).attr('title').trim());
+    });
+
+    const ep_start = $('#episode_page > li').first().find('a').attr('ep_start');
+    const ep_end = $('#episode_page > li').last().find('a').attr('ep_end');
+    const movie_id = $('#movie_id').attr('value');
+    const alias = $('#alias_anime').attr('value');
+    const episode_info_html = $('div.anime_info_episodes_next').html();
+    const episode_page = $('ul#episode_page').html();
+
+    const html = await axios.get(
+      `${list_episodes_url}?ep_start=${ep_start}&ep_end=${ep_end}&id=${movie_id}&default_ep=${0}&alias=${alias}`
+    );
+    const $$ = cheerio.load(html.data);
+
+    $$('#episode_related > li').each((i, el) => {
+      epList.push({
+        episodeId: $(el).find('a').attr('href').split('/')[1],
+        episodeNum: $(el).find(`div.name`).text().replace('EP ', ''),
+      });
+    });
+
+    return {
+      name: animeTitle.toString(),
+      type: type.toString(),
+      released: releasedDate.toString(),
+      status: status.toString(),
+      genres: genres,
+      othername: otherName,
+      synopsis: desc.toString(),
+      imageUrl: animeImage.toString(),
+      totalEpisodes: ep_end,
+      episode_id: epList.reverse(),
+      episode_info_html: episode_info_html.trim(),
+      episode_page: episode_page.toString().trim(),
+    };
+  } catch (err) {
+    console.log(err);
+    return { error: err };
+  }
+};
+
+app.get("/api/details/:id", async (req, res) => {
+  try {
+    const results = await scrapeAnimeDetails(req.params.id);
+    res.status(200).json({ results });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
-
 
 async function getLink(Link) {
   rs(Link, (err, resp, html) => {
