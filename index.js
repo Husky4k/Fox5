@@ -1,29 +1,82 @@
 const express = require('express')
-const { v4 } = require('uuid')
 const cheerio = require('cheerio')
+const fetch = require('node-fetch')
 const app = express()
 const rs = require('request')
-const axios = require('axios')
 const DOMParser = require('dom-parser')
 
 var cors = require('cors')
 
 const PORT = process.env.PORT || 5000
-const CORS = 'https://cors-anywhere.herokuapp.com/'
+const baseURL = "https://gogoanime3.co/";
 
 app.use(cors())
-const baseURL = "https://gogoanime3.co/";
-/*
-this server was based on goone.pro
-*/
 
-const myTrimAndSlice = (string) => {
-    trimmed = string.trim()
-    //sliced = trimmed.slice(0, trimmed.lastIndexOf('Episode'))
-    //return sliced
-    return trimmed
+async function getAnime(id) {
+    try {
+        const response = await fetch(baseURL + "/category/" + id);
+        const html = await response.text();
+        const $ = cheerio.load(html);
+        const animeData = {
+            name: $("div.anime_info_body_bg h1").text(),
+            image: $("div.anime_info_body_bg img").attr("src"),
+            id: id,
+            totalepisode: $("#episode_page").children("li").last().children("a").attr("ep_end")
+        };
+
+        $("div.anime_info_body_bg p.type").each(function (i, elem) {
+            const $x = cheerio.load($(elem).html());
+            let keyName = $x("span")
+                .text()
+                .toLowerCase()
+                .replace(":", "")
+                .trim()
+                .replace(/ /g, "_");
+            if (/released/g.test(keyName))
+                animeData[keyName] = $(elem)
+                    .html()
+                    .replace(`<span>${$x("span").text()}</span>`, "");
+            else animeData[keyName] = $x("a").text().trim() || null;
+        });
+
+        animeData.plot_summary = $("div.description").text().trim()
+
+        const animeid = $("input#movie_id").attr("value");
+        const episodesResponse = await fetch(
+            "https://ajax.gogocdn.net/ajax/load-list-episode?ep_start=0&ep_end=1000000&id=" +
+            animeid
+        );
+        const episodesHTML = await episodesResponse.text();
+        const episodes$ = cheerio.load(episodesHTML);
+
+        let episodes = [];
+        for (const element of episodes$("ul#episode_related a")) {
+            const name = episodes$(element)
+                .find("div")
+                .text()
+                .trim()
+                .split(" ")[1]
+                .slice(0, -3);
+            const link = episodes$(element).attr("href").trim().slice(1);
+            episodes.push([name, link]);
+        }
+        episodes = episodes.reverse();
+        animeData.episodes = episodes;
+
+        return animeData;
+    } catch (error) {
+        throw new Error("An error occurred while fetching anime details.");
+    }
 }
 
+app.get("/api/details/:id", async (req, res) => {
+    try {
+        const animeData = await getAnime(req.params.id);
+        res.status(200).json(animeData);
+    } catch (error) {
+        res.status(404).json({ error: error.message });
+    }
+});
 /*
 Need to change getSearchDom variables to more general term.
 The variable was used first while i was testing the scraping
@@ -57,68 +110,6 @@ app.get("/api/search/:word/:page", (req, res) => {
     }
   });
 });
-
-
-app.get("/api/details/:id", (req, res) => {
-  let results = [];
-
-  siteUrl = `${baseURL}category/${req.params.id}`;
-  rs(siteUrl, (err, resp, html) => {
-    if (!err) {
-      try {
-        var $ = cheerio.load(html);
-        var type = " ";
-        var summary = "";
-        var relased = "";
-        var status = "";
-        var genres = "";
-        var Othername = "";
-        var title = $(".anime_info_body_bg").children("h1").text();
-        var image = $(".anime_info_body_bg").children("img").attr().src;
-
-        $("p.type").each(function (index, element) {
-          if ("Type: " == $(this).children("span").text()) {
-            type = $(this).text().slice(15, -6);
-          } else if ("Plot Summary: " == $(this).children("span").text()) {
-            summary = $(this).text().slice(14);
-          } else if ("Released: " == $(this).children("span").text()) {
-            relased = $(this).text().slice(10);
-          } else if ("Status: " == $(this).children("span").text()) {
-            status = $(this).text().slice(8);
-          } else if ("Genre: " == $(this).children("span").text()) {
-            genres = $(this).text().slice(20, -7);
-            genres = genres.split(",");
-            genres = genres.join(",");
-          } else "Other name: " == $(this).children("span").text();
-          {
-            Othername = $(this).text().slice(12);
-          }
-        });
-        genres.replace(" ");
-        var totalepisode = $("#episode_page")
-          .children("li")
-          .last()
-          .children("a")
-          .attr().ep_end;
-        results[0] = {
-          title,
-          image,
-          type,
-          summary,
-          relased,
-          genres,
-          status,
-          totalepisode,
-          Othername,
-        };
-        res.status(200).json({ results });
-      } catch (e) {
-        res.status(404).json({ e: "404 fuck off!!!!!" });
-      }
-    }
-  });
-});
-
 
 async function getLink(Link) {
   rs(Link, (err, resp, html) => {
