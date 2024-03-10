@@ -36,10 +36,7 @@ async function getAnime(id) {
             else animeData[keyName] = $x("a").text().trim() || null;
         });
 
-        animeData.Othername = animeData.other_name;
-        delete animeData.other_name; // Removing the old key
-
-        animeData.summary = $("div.description").text().trim();
+        animeData.plot_summary = $("div.description").text().trim()
 
         const animeid = $("input#movie_id").attr("value");
         const episodesResponse = await fetch(
@@ -72,8 +69,7 @@ async function getAnime(id) {
 app.get("/api/details/:id", async (req, res) => {
     try {
         const animeData = await getAnime(req.params.id);
-        const responseData = { results: animeData }; // Wrapping animeData in a new object with "results" key
-        res.status(200).json(responseData);
+        res.status(200).json(animeData);
     } catch (error) {
         res.status(404).json({ error: error.message });
     }
