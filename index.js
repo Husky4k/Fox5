@@ -36,7 +36,10 @@ async function getAnime(id) {
             else animeData[keyName] = $x("a").text().trim() || null;
         });
 
-        animeData.summary = $("div.description").text().trim()
+        animeData.Othername = animeData.other_name;
+        delete animeData.other_name; // Removing the old key
+
+        animeData.summary = $("div.description").text().trim();
 
         const animeid = $("input#movie_id").attr("value");
         const episodesResponse = await fetch(
