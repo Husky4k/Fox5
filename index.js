@@ -1,28 +1,80 @@
-const express = require('express')
-const { v4 } = require('uuid')
-const cheerio = require('cheerio')
-const app = express()
-const rs = require('request')
-const axios = require('axios')
-const DOMParser = require('dom-parser')
+const express = require('express');
+const { v4 } = require('uuid');
+const cheerio = require('cheerio');
+const app = express();
+const rs = require('request');
+const axios = require('axios');
+const DOMParser = require('dom-parser');
 
-var cors = require('cors')
+var cors = require('cors');
 
-const PORT = process.env.PORT || 5000
-const CORS = 'https://cors-anywhere.herokuapp.com/'
+const PORT = process.env.PORT || 5000;
+const CORS = 'https://cors-anywhere.herokuapp.com/';
 
-app.use(cors())
+app.use(cors());
 const baseURL = "https://gogoanime3.co/";
+
 /*
 this server was based on goone.pro
 */
 
 const myTrimAndSlice = (string) => {
-    trimmed = string.trim()
-    //sliced = trimmed.slice(0, trimmed.lastIndexOf('Episode'))
-    //return sliced
-    return trimmed
+    trimmed = string.trim();
+    return trimmed;
 }
+
+async function getEpisode(req, res) {
+    const id = req.params.id;
+    const link = `${baseURL}/${id}`;
+
+    try {
+        const response = await fetch(link);
+        const html = await response.text();
+        const $ = cheerio.load(html);
+        const episodeCount = $("ul#episode_page li a.active").attr("ep_end");
+        const iframe = $("div.play-video iframe").attr("src");
+        const serverList = $("div.anime_muti_link ul li");
+        const servers = {};
+
+        serverList.each(function (i, elem) {
+            elem = $(elem);
+            if (elem.attr("class") != "anime") {
+                servers[elem.attr("class")] = elem.find("a").attr("data-video");
+            }
+        });
+
+        let m3u8;
+        try {
+            m3u8 = await getM3U8(iframe);
+        } catch (e) {
+            console.log(e);
+            m3u8 = null;
+        }
+
+        const ScrapedAnime = {
+            name:
+                $("div.anime_video_body h1")
+                .text()
+                .replace("at gogoanime", "")
+                .trim() || null,
+            episodes: episodeCount,
+            stream: m3u8,
+            servers,
+        };
+
+        res.json(ScrapedAnime);
+    } catch (error) {
+        res.status(500).json({
+            error: error.message
+        });
+    }
+}
+
+async function getM3U8(iframe_url) {
+    // Implementation of getM3U8 function
+}
+
+app.get("/api/episode/:id", getEpisode);
 
 /*
 Need to change getSearchDom variables to more general term.
