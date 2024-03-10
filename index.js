@@ -77,6 +77,10 @@ async function getAnime(id) {
 app.get("/api/details/:id", async (req, res) => {
     try {
         const animeData = await getAnime(req.params.id);
+        // Remove the 'plot_summary' key if its value is null
+        if (animeData.plot_summary === null) {
+            delete animeData.plot_summary;
+        }
         res.status(200).json(animeData);
     } catch (error) {
         res.status(404).json({ error: error.message });
