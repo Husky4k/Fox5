@@ -40,7 +40,8 @@ async function getAnime(id) {
                 animeData["genres"] = $x("a")
                     .map((i, el) => $(el).text().trim())
                     .get()
-                    .join(", ") || null;
+                    .join(", ")
+                    .replace(/, +/g, ", ") || null;
             else
                 animeData[keyName] = $x("a").text().trim() || null;
         });
