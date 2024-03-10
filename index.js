@@ -1,16 +1,13 @@
-const express = require('express')
-const cheerio = require('cheerio')
-const fetch = require('node-fetch')
-const app = express()
-const rs = require('request')
-const DOMParser = require('dom-parser')
+const express = require('express');
+const cheerio = require('cheerio');
+const fetch = require('node-fetch');
+const cors = require('cors');
 
-var cors = require('cors')
-
-const PORT = process.env.PORT || 5000
+const app = express();
+const PORT = process.env.PORT || 5000;
 const baseURL = "https://gogoanime3.co/";
 
-app.use(cors())
+app.use(cors());
 
 async function getAnime(id) {
     try {
