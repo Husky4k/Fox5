@@ -15,7 +15,7 @@ async function getAnime(id) {
         const html = await response.text();
         const $ = cheerio.load(html);
         const animeData = {
-            name: $("div.anime_info_body_bg h1").text(),
+            title: $("div.anime_info_body_bg h1").text(),
             image: $("div.anime_info_body_bg img").attr("src"),
             id: id,
             totalepisode: $("#episode_page").children("li").last().children("a").attr("ep_end")
@@ -36,7 +36,7 @@ async function getAnime(id) {
             else animeData[keyName] = $x("a").text().trim() || null;
         });
 
-        animeData.plot_summary = $("div.description").text().trim()
+        animeData.summary = $("div.description").text().trim()
 
         const animeid = $("input#movie_id").attr("value");
         const episodesResponse = await fetch(
@@ -69,7 +69,8 @@ async function getAnime(id) {
 app.get("/api/details/:id", async (req, res) => {
     try {
         const animeData = await getAnime(req.params.id);
-        res.status(200).json(animeData);
+        const responseData = { results: animeData }; // Wrapping animeData in a new object with "results" key
+        res.status(200).json(responseData);
     } catch (error) {
         res.status(404).json({ error: error.message });
     }
