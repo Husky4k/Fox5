@@ -34,10 +34,17 @@ async function getAnime(id) {
                 animeData[keyName] = $(elem)
                     .html()
                     .replace(`<span>${$x("span").text()}</span>`, "");
-            else animeData[keyName] = $x("a").text().trim() || null;
+            else if (keyName === "other_name")
+                animeData["Othername"] = $x("a").text().trim() || null;
+            else if (keyName === "genre")
+                animeData["genres"] = $x("a")
+                    .map((i, el) => $(el).text().trim())
+                    .get() || null;
+            else
+                animeData[keyName] = $x("a").text().trim() || null;
         });
 
-        animeData.plot_summary = $("div.description").text().trim()
+        animeData.summary = $("div.description").text().trim();
 
         const animeid = $("input#movie_id").attr("value");
         const episodesResponse = await fetch(
