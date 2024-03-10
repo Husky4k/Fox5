@@ -17,7 +17,8 @@
     "cheerio": "^1.0.0-rc.3",
     "nodemon": "^2.0.7",
     "request": "^2.88.2",
-    "uuid": "^8.3.1"
+    "uuid": "^8.3.1",
+    "node-fetch": "^2.6.1"   // Add this line
   },
   "engines": {
     "node": "v16.0.0",
