@@ -5,6 +5,7 @@ const app = express();
 const rs = require('request');
 const axios = require('axios');
 const DOMParser = require('dom-parser');
+const CryptoJS = require('crypto-js'); // Added CryptoJS
 
 var cors = require('cors');
 
@@ -13,7 +14,6 @@ const CORS = 'https://cors-anywhere.herokuapp.com/';
 
 app.use(cors());
 const baseURL = "https://gogoanime3.co/";
-
 /*
 this server was based on goone.pro
 */
@@ -23,58 +23,82 @@ const myTrimAndSlice = (string) => {
     return trimmed;
 }
 
-async function getEpisode(req, res) {
-    const id = req.params.id;
-    const link = `${baseURL}/${id}`;
+/*
+Need to change getSearchDom variables to more general term.
+The variable was used first while i was testing the scraping
+and it was copy pasted to other routes
+*/
 
-    try {
-        const response = await fetch(link);
-        const html = await response.text();
-        const $ = cheerio.load(html);
-        const episodeCount = $("ul#episode_page li a.active").attr("ep_end");
-        const iframe = $("div.play-video iframe").attr("src");
-        const serverList = $("div.anime_muti_link ul li");
-        const servers = {};
-
-        serverList.each(function (i, elem) {
-            elem = $(elem);
-            if (elem.attr("class") != "anime") {
-                servers[elem.attr("class")] = elem.find("a").attr("data-video");
-            }
-        });
-
-        let m3u8;
-        try {
-            m3u8 = await getM3U8(iframe);
-        } catch (e) {
-            console.log(e);
-            m3u8 = null;
-        }
-
-        const ScrapedAnime = {
-            name:
-                $("div.anime_video_body h1")
-                .text()
-                .replace("at gogoanime", "")
-                .trim() || null,
-            episodes: episodeCount,
-            stream: m3u8,
-            servers,
-        };
-
-        res.json(ScrapedAnime);
-    } catch (error) {
-        res.status(500).json({
-            error: error.message
-        });
-    }
-}
+// Your existing routes...
 
 async function getM3U8(iframe_url) {
-    // Implementation of getM3U8 function
+    let sources = [];
+    let sources_bk = [];
+    let serverUrl = new URL(iframe_url);
+    console.log(serverUrl.href);
+    const goGoServerPage = await fetch(serverUrl.href, {
+        headers: { "User-Agent": USER_AGENT },
+    });
+    const $$ = cheerio.load(await goGoServerPage.text());
+
+    const params = await generateEncryptAjaxParameters(
+        $$,
+        serverUrl.searchParams.get("id")
+    );
+
+    const fetchRes = await fetch(
+        `${serverUrl.protocol}//${serverUrl.hostname}/encrypt-ajax.php?${params}`,
+        {
+            headers: {
+                "User-Agent": USER_AGENT,
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        }
+    );
+
+    const res = decryptEncryptAjaxResponse(await fetchRes.json());
+    res.source.forEach((source) => sources.push(source));
+    res.source_bk.forEach((source) => sources_bk.push(source));
+    console.log(res);
+
+    return {
+        Referer: serverUrl.href,
+        sources: sources,
+        sources_bk: sources_bk,
+    };
 }
 
-app.get("/api/episode/:id", getEpisode);
+/**
+ * Parses the embedded video URL to encrypt-ajax.php parameters
+ * @param {cheerio} $ Cheerio object of the embedded video page
+ * @param {string} id Id of the embedded video URL
+ */
+async function generateEncryptAjaxParameters($, id) {
+    // encrypt the key
+    const encrypted_key = CryptoJS.AES['encrypt'](id, keys.key, {
+        iv: keys.iv,
+    });
+
+    const script = $("script[data-name='episode']").data().value;
+    const token = CryptoJS.AES['decrypt'](script, keys.key, {
+        iv: keys.iv,
+    }).toString(CryptoJS.enc.Utf8);
+
+    return 'id=' + encrypted_key + '&alias=' + id + '&' + token;
+}
+
+/**
+ * Decrypts the encrypted-ajax.php response
+ * @param {object} obj Response from the server
+ */
+function decryptEncryptAjaxResponse(obj) {
+    const decrypted = CryptoJS.enc.Utf8.stringify(
+        CryptoJS.AES.decrypt(obj.data, keys.second_key, {
+            iv: keys.iv,
+        })
+    );
+    return JSON.parse(decrypted);
+}
 
 /*
 Need to change getSearchDom variables to more general term.
