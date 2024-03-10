@@ -1,8 +1,12 @@
-const express = require('express');
-const cheerio = require('cheerio');
+const express = require('express')
+const { v4 } = require('uuid')
+const cheerio = require('cheerio')
+const app = express()
+const rs = require('request')
+const axios = require('axios')
 const fetch = require('node-fetch');
 const cors = require('cors');
-const axios = require('axios');
+const DOMParser = require('dom-parser')
 
 const app = express();
 const PORT = process.env.PORT || 5000;
